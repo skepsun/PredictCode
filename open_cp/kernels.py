@@ -87,8 +87,8 @@ class GaussianKernel(Kernel):
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
-        if _np.any(_np.abs(variances) < 1e-8):
-            raise ValueError("Too small variance!")
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
 
         if len(means.shape) == 1:
             self.means = means[None, :]
