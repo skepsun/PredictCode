@@ -522,6 +522,7 @@ class SEPPTrainer(predictors.DataTrainer):
         # From Rosser, Cheng, suggested 0.1 day^{-1} and 50 metres
         self._initial_time_bandwidth = 24 * 60 / 10 # minutes
         self._initial_space_bandwidth = 50.0
+        self._kernel_type = 'Gaussian'
 
     @property
     def trigger_kernel_estimator(self):
@@ -602,7 +603,7 @@ class SEPPTrainer(predictors.DataTrainer):
         """
         decluster = StocasticDecluster()
         decluster.trigger_kernel_estimator = self._trigger_kernel_estimator
-        decluster.background_kernel_estimator = kernels.KNNG1_NDFactors(self.k_time, self.k_space)
+        decluster.background_kernel_estimator = kernels.KNNG1_NDFactors(self.k_time, self.k_space, self._kernel_type)
         decluster.initial_time_bandwidth = self.initial_time_bandwidth
         decluster.initial_space_bandwidth = self.initial_space_bandwidth
         decluster.space_cutoff = self._space_cutoff

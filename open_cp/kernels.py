@@ -182,6 +182,433 @@ class EpanechnikovKernel(Kernel):
     def set_scale(self, scale):
         self.scale = scale
 
+class TriangularKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        x = 1 - _np.sqrt(x / var_broad)
+        x[x<0] = 0
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+
+class BoxKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        x = x/var_broad
+        x[x<=1] = 0.5
+        x[x>1] = 0
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+        
+class QuarticKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        mask = abs(x) / abs(var_broad)
+        x[mask] = 15/16 * ((1 - x[mask] )**2)
+        x[~mask] = 0
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+
+class TriweightKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        x = 35/32 * ((1 - x / var_broad)**3)
+        x[x<0] = 0
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+        
+class TricubeKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        mask = abs(x) <= abs(var_broad)
+        x[mask] = 70/81 * ((1 - x[mask] / var_broad)**3)
+        x[~mask] = 0
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+        
+class CosineKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        mask = abs(x)<=abs(var_broad)
+        x[mask] = _np.pi/4 * _np.cos(0.5 * _np.pi * _np.sqrt(x / var_broad))
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+
+class UniformKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        mask = x <= var_broad
+        x[mask] = 0.5
+        x[~mask] = 0
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+        
+class SilvermanKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        x = 0.5 * _np.exp(-_np.sqrt(x/var_broad/2)) * _np.sin(_np.sqrt(x/var_broad/2)+_np.pi/4)
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
+        
 def compute_kth_distance(coords, k=15):
     """Find the (Euclidean) distance to the `k` th nearest neighbour.
 
@@ -229,7 +656,7 @@ def compute_normalised_kth_distance(coords, k=15):
         points = coords / _np.std(coords, axis=1, ddof=1)[:, None]
     return compute_kth_distance(points, k)
 
-def kth_nearest_neighbour_gaussian_kde(coords, k=15):
+def kth_nearest_neighbour_gaussian_kde(coords, k=15, kernel_type='Gaussian'):
     """Estimate a kernel using variable bandwidth with a Gaussian kernel.
     The input data is scaled (independently in each coordinate) to have unit
     variance in each coordinate, and then the distance to the `k` th nearest
@@ -271,9 +698,28 @@ def kth_nearest_neighbour_gaussian_kde(coords, k=15):
         distance_to_k[mask] = 1.0
     
     var = _np.tensordot(distance_to_k, stds, axes=0) ** 2
-    return GaussianKernel(means.T, var.T)
+    if kernel_type=='Gaussian':
+        return GaussianKernel(means.T, var.T)
+    elif kernel_type=='Parabolic':
+        return EpanechnikovKernel(means.T, var.T)
+    elif kernel_type=='Triangular':
+        return TriangularKernel(means.T, var.T)
+    elif kernel_type=='Box':
+        return BoxKernel(means.T, var.T)
+    elif kernel_type=='Quartic':
+        return QuarticKernel(means.T, var.T)
+    elif kernel_type=='Triweight':
+        return TriweightKernel(means.T, var.T)
+    elif kernel_type=='Tricube':
+        return TricubeKernel(means.T, var.T)
+    elif kernel_type=='Cosine':
+        return CosineKernel(means.T, var.T)
+    elif kernel_type=='Uniform':
+        return UniformKernel(means.T, var.T)
+    elif kernel_type=='Silverman':
+        return SilvermanKernel(means.T, var.T)
 
-def marginal_knng(coords, coord_index=0, k=15):
+def marginal_knng(coords, coord_index=0, k=15, kernel_type='Gaussian'):
     """Computes a one-dimensional marginal for the kernel which would be
     returned by :function kth_nearest_neighbour_gaussian_kde: Equivalent to,
     but much faster, than (numerically) integerating out all but one variable.
@@ -292,7 +738,26 @@ def marginal_knng(coords, coord_index=0, k=15):
     distances = compute_normalised_kth_distance(coords, k)
     data = coords[coord_index]
     var = (_np.std(data, ddof=1) * distances) ** 2
-    return GaussianKernel(data, var)
+    if kernel_type=='Gaussian':
+        return GaussianKernel(data, var)
+    elif kernel_type=='Parabolic':
+        return EpanechnikovKernel(data, var)
+    elif kernel_type=='Triangular':
+        return TriangularKernel(data, var)
+    elif kernel_type=='Box':
+        return BoxKernel(data, var)
+    elif kernel_type=='Quartic':
+        return QuarticKernel(data, var)
+    elif kernel_type=='Triweight':
+        return TriweightKernel(data, var)
+    elif kernel_type=='Tricube':
+        return TricubeKernel(data, var)
+    elif kernel_type=='Cosine':
+        return CosineKernel(data, var)
+    elif kernel_type=='Uniform':
+        return UniformKernel(data, var)
+    elif kernel_type=='Silverman':
+        return SilvermanKernel(data, var)
 
 
 class KthNearestNeighbourGaussianKDE(KernelEstimator):
@@ -302,11 +767,12 @@ class KthNearestNeighbourGaussianKDE(KernelEstimator):
     :param k: The nearest neighbour to use, defaults to 15, if N is too small
       then uses N-1.
     """
-    def __init__(self, k=15):
+    def __init__(self, k=15, kernel_type='Gaussian'):
         self.k = k
+        self.kernel_type = kernel_type
         
     def __call__(self, coords):
-        return kth_nearest_neighbour_gaussian_kde(coords, self.k)
+        return kth_nearest_neighbour_gaussian_kde(coords, self.k, self.kernel_type)
 
 
 class ReflectedKernel(Kernel):
@@ -422,8 +888,8 @@ class KNNG1_NDFactors(TimeSpaceFactorsEstimator):
     :param k_rest: The nearest neighbour to use for the remaining coordinates,
       defaults to 15, if N is too small then uses N-1.
     """
-    def __init__(self, k_first=100, k_rest=15):
-        super().__init__(KthNearestNeighbourGaussianKDE(k_first), KthNearestNeighbourGaussianKDE(k_rest))
+    def __init__(self, k_first=100, k_rest=15, kernel_type='Gaussian'):
+        super().__init__(KthNearestNeighbourGaussianKDE(k_first, kernel_type), KthNearestNeighbourGaussianKDE(k_rest, kernel_type))
 
 
 class GaussianBase():
