@@ -271,7 +271,7 @@ class ContinuousPrediction():
             # Use a fixed _density_
             samples = int(cell_width * cell_height / 200)
             if samples < 2:
-                samples = 2
+                samples = 1
         self.samples = samples
     
     def grid_risk(self, gx, gy):
@@ -300,7 +300,7 @@ class ContinuousPrediction():
             return self.risk(point[0], point[1])
         return kernel
 
-    def rebase(self, cell_width, cell_height, xoffset, yoffset, samples=50):
+    def rebase(self, cell_width, cell_height, xoffset, yoffset, samples=1):
         """Returns a new instance using the same risk but with a different grid
         size and offset"""
         instance = ContinuousPrediction(cell_width, cell_height, xoffset,

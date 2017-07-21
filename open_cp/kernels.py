@@ -129,6 +129,58 @@ class GaussianKernel(Kernel):
     def set_scale(self, scale):
         self.scale = scale
 
+class EpanechnikovKernel(Kernel):
+    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    kernel.
+    
+    :param means: Array of shape (k,M).  The centre of each Gaussian.
+    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param scale: The overall normalisation factor, defaults to 1.0.
+    """
+    def __init__(self, means, variances, scale=1.0):
+#        if _np.any(_np.abs(variances) < 1e-8):
+#            raise ValueError("Too small variance!")
+
+        if len(means.shape) == 1:
+            self.means = means[None, :]
+            self.variances = variances[None, :]
+        else:
+            self.means = means
+            self.variances = variances
+        self.scale = scale
+        
+    def __call__(self, points):
+        """For each point in `pts`: for each of i=1...M and each coord j=1...k
+        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        and then product over the j, sum over the i, and finally divide by M.
+        """
+        points = _np.asarray(points)
+        if self.means.shape[0] == 1:
+            if len(points.shape) == 0:
+                # Scalar input
+                pts = points[None, None]
+            elif len(points.shape) == 1:
+                pts = points[None, :]
+            else:
+                pts = points
+        else:
+            # k>1 so if points is 1D it's a single point
+            if len(points.shape) == 1:
+                pts = points[:, None]
+            else:
+                pts = points
+
+        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
+        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
+        var_broad = self.variances[:,None,:]
+        x = 3/4 * (1 - x / var_broad )
+        x[x<0] = 0
+        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
+        return return_array if pts.shape[1] > 1 else return_array[0]
+        
+    def set_scale(self, scale):
+        self.scale = scale
 
 def compute_kth_distance(coords, k=15):
     """Find the (Euclidean) distance to the `k` th nearest neighbour.

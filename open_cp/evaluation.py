@@ -121,7 +121,7 @@ class PredictionProvider():
 
 
 HitRateDetail = _collections.namedtuple("HitRateDetail",
-    ["total_cell_count", "prediction"])
+    ["total_cell_count", "prediction", "TrueNumber"])
 
 
 class HitRateResult():
@@ -189,6 +189,7 @@ class HitRateEvaluator(_predictors.DataTrainer):
             out[start] = hit_rates(pred, points, coverage_levels)
             details[start] = HitRateDetail(
                 total_cell_count=pred.intensity_matrix.size,
-                prediction = pred
+                prediction = pred,
+                TrueNumber = points.coords.shape[-1]
                 )
         return HitRateResult(out, details)
