@@ -20,11 +20,12 @@ from open_cp.gui.import_file_model import CoordType
 import open_cp.gui.run_analysis as run_analysis
 import open_cp.gui.run_comparison as run_comparison
 import open_cp.gui.browse_analysis as browse_analysis
+import open_cp.gui.browse_comparison as browse_comparison
 import open_cp.gui.locator as locator
 import open_cp.gui.session as session
 
 class Analysis():
-    def __init__(self, model, root):
+    def __init__(self, model, root, settings_data=None):
         self.model = model
         self._root = root
         self._logger = logging.getLogger(__name__)
@@ -34,6 +35,21 @@ class Analysis():
         self._tools.view = self.view
         self._comparisons.view = self.view
         self._init()
+        self._finalise_loading(settings_data)
+
+    def _finalise_loading(self, data):
+        if data is None:
+            return
+        view = analysis_view.FurtherWait(self._root)
+        def task():
+            self.model.load_settings_slow(data)
+        def done(input=None):
+            self.model.reset_settings_dict()
+            self._init()
+            self.view.update_run_analysis_results()
+            view.destroy()
+        locator.get("pool").submit(task, done)
+        self.view.wait_window(view)
 
     def _init(self):
         errors = self.model.consume_errors()
@@ -173,6 +189,14 @@ class Analysis():
         result = run_analysis.merge_all_results(self.model.analysis_runs)
         browse_analysis.BrowseAnalysis(self._root, result, self.model).run()
         
+    def view_comparison(self, analysis_index, comparison_index):
+        result = self.model.analysis_run_comparisons(analysis_index)[comparison_index]
+        browse_comparison.BrowseComparison(self._root, result).run()
+
+    def view_all_comparisons(self):
+        result = self.model.complete_comparison
+        browse_comparison.BrowseComparison(self._root, result).run()
+
     def run_comparison_for(self, run):
         self._last_comprison_run_for = run
         result = self.model.analysis_runs[run]
@@ -505,6 +529,7 @@ class Model(DataModel):
         self._analysis_runs[run_index].filename = filename
 
     def load_analysis_run(self, filename):
+        self._logger.debug("Attempting to load past analysis run: '%s'", filename)
         with lzma.open(filename, "rb") as file:
             result = pickle.load(file)
         self.new_analysis_run(result, filename)
@@ -557,28 +582,6 @@ class Model(DataModel):
         Checks that the selected crime types are consistent with the current
         data and adds problems to the errors list.
         """
-        if "analysis_tools" in data:
-            try:
-                self.analysis_tools_model.settings_from_dict(data["analysis_tools"])
-            except ValueError as ex:
-                self._errors.append(str(ex))
-        else:
-            self._logger.warn("Didn't find key 'analysis_tools': Is this an old input file?")
-        if "comparison_tools" in data:
-            try:
-                self.comparison_model.settings_from_dict(data["comparison_tools"])
-            except ValueError as ex:
-                self._errors.append(str(ex))
-        else:
-            self._logger.warn("Didn't find key 'comparison_tools': Is this an old input file?")
-        if "saved_analysis_runs" in data:
-            for filename in data["saved_analysis_runs"]:
-                try:
-                    self.load_analysis_run(filename)
-                except Exception as ex:
-                    self._errors.append(str(ex))
-        else:
-            self._logger.warn("Didn't find key 'saved_analysis_runs': Is this an old input file?")
         t = data["training_time_range"]
         a = data["assessment_time_range"]
         self.time_range = [funcs.string_to_datetime(t[0]), funcs.string_to_datetime(t[1]),
@@ -599,8 +602,41 @@ class Model(DataModel):
         if len(self._errors) > 0:
             self._logger.warn("Errors in loading saved settings: %s", self._errors)
         self.selected_crime_types = sel_ctypes
-        
-        self.reset_settings_dict()
+
+    def load_settings_slow(self, data):
+        """Load further settings from a dictionary; should be run off-thread...
+        """
+        self._load_analysis_tools_from_dict(data)
+        self._load_comparison_tools_from_dict(data)
+        self._load_saved_runs_from_dict(data)
+
+    def _load_analysis_tools_from_dict(self, data):
+        if "analysis_tools" in data:
+            try:
+                self.analysis_tools_model.settings_from_dict(data["analysis_tools"])
+            except ValueError as ex:
+                self._errors.append(str(ex))
+        else:
+            self._logger.warn("Didn't find key 'analysis_tools': Is this an old input file?")
+
+    def _load_comparison_tools_from_dict(self, data):
+        if "comparison_tools" in data:
+            try:
+                self.comparison_model.settings_from_dict(data["comparison_tools"])
+            except ValueError as ex:
+                self._errors.append(str(ex))
+        else:
+            self._logger.warn("Didn't find key 'comparison_tools': Is this an old input file?")
+
+    def _load_saved_runs_from_dict(self, data):
+        if "saved_analysis_runs" in data:
+            for filename in data["saved_analysis_runs"]:
+                try:
+                    self.load_analysis_run(filename)
+                except Exception as ex:
+                    self._errors.append(str(ex))
+        else:
+            self._logger.warn("Didn't find key 'saved_analysis_runs': Is this an old input file?")
 
     def consume_errors(self):
         """Returns a list of error messages and resets the list to be empty."""
@@ -691,6 +727,7 @@ class _ListModel():
     def __init__(self, model):
         self._objects = []
         self._model = model
+        self._logger = logging.getLogger(__name__)
     
     def to_dict(self):
         """This base class version just serialises the :attr:`objects` as
@@ -781,6 +818,7 @@ class AnalysisToolsModel(_ListModel):
                 errors.append(analysis_view._text["pi_fail2"].format(name))
                 continue
             try:
+                self._logger.debug("Loading settings for analysis type %s", name)
                 pred = pred[0](self._model)
                 pred.from_dict(pred_data["settings"])
                 v.append(pred)
@@ -900,6 +938,7 @@ class ComparisonModel(_ListModel):
                 errors.append(analysis_view._text["ci_fail2"].format(name))
                 continue
             try:
+                self._logger.debug("Loading settings for comparitor type %s", name)
                 pred = pred[0](self._model)
                 pred.from_dict(pred_data["settings"])
                 v.append(pred)

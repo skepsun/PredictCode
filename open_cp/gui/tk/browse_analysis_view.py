@@ -9,6 +9,7 @@ import tkinter.ttk as ttk
 import open_cp.gui.tk.util as util
 import open_cp.gui.tk.tooltips as tooltips
 import open_cp.gui.tk.mtp as mtp
+import open_cp.gui.tk.hierarchical_view as hierarchical_view
 
 _text = {
     "title" : "Previous Analysis results.  Run @ {}",
@@ -17,6 +18,7 @@ _text = {
     "grid" : "Grid system used:",
     "pred" : "Prediction type:",
     "date" : "Prediction date:",
+    "len" : "Prediction length:",
     "graph_name" : "Estimated (relative) risk",
     "risktype" : "Plot type",
     "rrisk" : "Relative risk",
@@ -31,7 +33,8 @@ _text = {
     "topcus_tt" : "Show just the top % of grid cells by risk",
     "adj" : "Adjusters",
     "none" : "None",
-    
+    "exit" : "Exit",
+
 }
 
 class BrowseAnalysisView(util.ModalWindow):
@@ -41,34 +44,19 @@ class BrowseAnalysisView(util.ModalWindow):
         super().__init__(parent, title, resize="wh")
         self.set_size_percentage(50, 60)
 
-    def add_widgets(self):
-        self._selection_frame = ttk.Frame(self)
-        self._selection_frame.grid(row=0, column=0)
-        ttk.Label(self._selection_frame, text=_text["cp"]).grid(row=0, column=0, padx=2, sticky=tk.E)
-        ttk.Label(self._selection_frame, text=_text["grid"]).grid(row=1, column=0, padx=2, sticky=tk.E)
-        ttk.Label(self._selection_frame, text=_text["pred"]).grid(row=2, column=0, padx=2, sticky=tk.E)
-        ttk.Label(self._selection_frame, text=_text["date"]).grid(row=3, column=0, padx=2, sticky=tk.E)
-        
+    def add_risk_choice_widgets(self):
         frame = ttk.LabelFrame(self, text=_text["risktype"])
         frame.grid(row=0, column=1)
         self._risk_choice = tk.IntVar()
-        rb = ttk.Radiobutton(frame, text=_text["rrisk"], value=0, variable=self._risk_choice, command=self._risk_choice_change)
-        rb.grid(row=0, column=0, padx=2, sticky=tk.W)
-        tooltips.ToolTipYellow(rb, _text["rrisk_tt"])
-        rb = ttk.Radiobutton(frame, text=_text["top1"], value=1, variable=self._risk_choice, command=self._risk_choice_change)
-        rb.grid(row=1, column=0, padx=2, sticky=tk.W)
-        tooltips.ToolTipYellow(rb, _text["top1_tt"])
-        rb = ttk.Radiobutton(frame, text=_text["top5"], value=2, variable=self._risk_choice, command=self._risk_choice_change)
-        rb.grid(row=2, column=0, padx=2, sticky=tk.W)
-        tooltips.ToolTipYellow(rb, _text["top5_tt"])
-        rb = ttk.Radiobutton(frame, text=_text["top10"], value=3, variable=self._risk_choice, command=self._risk_choice_change)
-        rb.grid(row=3, column=0, padx=2, sticky=tk.W)
-        tooltips.ToolTipYellow(rb, _text["top10_tt"])
+        for row, (text, tt) in enumerate([ (_text["rrisk"], _text["rrisk_tt"]),
+            (_text["top1"], _text["top1_tt"]),
+            (_text["top5"], _text["top5_tt"]),
+            (_text["top10"], _text["top10_tt"]) ]):
+            self._make_rb(frame, row, text, tt).grid(row=row, column=0, padx=2, sticky=tk.W)
+
         subframe = ttk.Frame(frame)
         subframe.grid(row=4, column=0, sticky=tk.W)
-        rb = ttk.Radiobutton(subframe, text=_text["topcus"], value=4, variable=self._risk_choice, command=self._risk_choice_change)
-        rb.grid(row=0, column=0, padx=2, sticky=tk.W)
-        tooltips.ToolTipYellow(rb, _text["topcus_tt"])
+        self._make_rb(subframe, 4, _text["topcus"], _text["topcus_tt"]).grid(row=0, column=0, padx=2, sticky=tk.W)
         self._risk_level = tk.StringVar()
         self._risk_level.set("5")
         self._risk_level_entry = ttk.Entry(subframe, textvariable=self._risk_level)
@@ -76,11 +64,38 @@ class BrowseAnalysisView(util.ModalWindow):
         self._risk_level_entry["state"] = tk.DISABLED
         util.PercentageValidator(self._risk_level_entry, self._risk_level, callback=self._risk_choice_change)
 
+    def _make_rb(self, frame, value, text, tt):
+        rb = ttk.Radiobutton(frame, text=text, value=value,
+            variable=self._risk_choice, command=self._risk_choice_change)
+        tooltips.ToolTipYellow(rb, tt)
+        return rb
+
+    def add_choice_widgets(self):
+        self._selection_frame = ttk.Frame(self)
+        self._selection_frame.grid(row=0, column=0)
+        for row, text in enumerate([_text["cp"], _text["grid"], _text["pred"],
+                _text["date"], _text["len"]]):
+            ttk.Label(self._selection_frame, text=text).grid(row=row, column=0, padx=2, sticky=tk.E)
+        self._hview = hierarchical_view.HierarchicalView(self.model.prediction_hierarchy, None, self._selection_frame)
+        for row, frame in zip(range(5), self._hview.frames):
+            frame.grid(row=row, column=1, padx=2, pady=2, sticky=tk.W)
+
+    def add_adjust_widgets(self):
         self._adjust_frame = ttk.LabelFrame(self, text=_text["adj"])
-        self._adjust_frame.grid(row=1, column=0, columnspan=2)
+        self._adjust_frame.grid(row=1, column=0, sticky=tk.EW)
+        util.stretchy_rows_cols(self._adjust_frame, [0], [0])
         choices = [key for (key,_) in self.controller.model.adjust_tasks]
-        self._adjust_choice = self._cbox(self._adjust_frame, choices, self._adjust_changed)
-        self._adjust_choice.grid(padx=2, pady=2)
+        self._adjust_choice = ttk.Combobox(self._adjust_frame, height=5,
+            state="readonly", values=choices)#, width=50)
+        self._adjust_choice.bind("<<ComboboxSelected>>", self._adjust_changed)
+        self._adjust_choice.current(0)
+        self._adjust_choice.grid(padx=2, pady=2, sticky=tk.EW)
+
+    def add_widgets(self):
+        self.add_choice_widgets()
+        self.add_risk_choice_widgets()
+        self.add_adjust_widgets()
+        ttk.Button(self, text=_text["exit"], command=self.destroy).grid(row=1,column=1,sticky=tk.NSEW, padx=10, pady=5)
 
     def _adjust_changed(self, event):
         self.controller.notify_adjust_choice(event.widget.current())
@@ -103,121 +118,13 @@ class BrowseAnalysisView(util.ModalWindow):
         else:
             raise ValueError()
 
-    def _cbox(self, parent, choices, command=None):
-        cbox = ttk.Combobox(parent, height=5, state="readonly")
-        cbox["values"] = choices
-        cbox.bind("<<ComboboxSelected>>", command)
-        cbox.current(0)
-        cbox["width"] = max(len(str(t)) for t in choices)
-        return cbox
-
-    def _cbox_or_label(self, parent, choices, command=None):
-        """Produces a :class:`ttk.Combobox` unless `choices` is of length 1,
-        in which case just produces a label.
-
-        :return: Pair of `(widget, flag)` where `flag` is True if and only if
-          we produced a box.
-        """
-        if len(choices) == 1:
-            p = choices[0]
-            label = ttk.Label(parent, text=str(p))
-            return label, False
-        else:
-            return self._cbox(parent, choices, command), True
-
-    def update_projections(self):
-        w, flag = self._cbox_or_label(self._selection_frame, self.controller.model.projections, command=self._proj_chosen)
-        w.grid(row=0, column=1, padx=2, pady=2, sticky=tk.W)
-        if flag:
-            self._proj_cbox = w
-        else:
-            self._proj_cbox = None
-        self._proj_choice = 0
-        self.controller.notify_projection_choice(0)
-
-    def _proj_chosen(self, event):
-        self._proj_choice = event.widget.current()
-        self.controller.notify_projection_choice(self._proj_choice)
-
-    @property
-    def projection_choice(self):
-        """Pair of (index, string_value)"""
-        if self._proj_cbox is None:
-            return 0, self.controller.model.projections[0]
-        return self._proj_choice, self._proj_cbox["values"][self._proj_choice]
-
-    def update_grids(self, choices):
-        self._grid_choices = list(choices)
-        w, flag = self._cbox_or_label(self._selection_frame, self._grid_choices, command=self._grid_chosen)
-        w.grid(row=1, column=1, padx=2, pady=2, sticky=tk.W)
-        if flag:
-            self._grid_cbox = w
-        else:
-            self._grid_cbox = None
-        self._grid_choice = 0
-        self.controller.notify_grid_choice(0)
-        
-    def _grid_chosen(self, event):
-        self._grid_choice = event.widget.current()
-        self.controller.notify_grid_choice(self._grid_choice)
-
-    @property
-    def grid_choice(self):
-        """Pair of (index, string_value)"""
-        if self._grid_cbox is None:
-            return 0, self._grid_choices[0]
-        return self._grid_choice, self._grid_cbox["values"][self._grid_choice]
-        
-    def update_predictions(self, choices):
-        self._pred_choices = list(choices)
-        w, flag = self._cbox_or_label(self._selection_frame, self._pred_choices, command=self._pred_chosen)
-        w.grid(row=2, column=1, padx=2, pady=2, sticky=tk.W)
-        if flag:
-            self._pred_cbox = w
-        else:
-            self._pred_cbox = None
-        self._pred_choice = 0
-        self.controller.notify_pred_choice(0)
-        
-    def _pred_chosen(self, event):
-        self._pred_choice = event.widget.current()
-        self.controller.notify_pred_choice(self._pred_choice)
-
-    @property
-    def prediction_choice(self):
-        """Pair of (index, string_value)"""
-        if self._pred_cbox is None:
-            return 0, self._pred_choices[0]
-        return self._pred_choice, self._pred_cbox["values"][self._pred_choice]
-
-    def update_dates(self, choices, choice_index=0):
-        self._date_choices = list(choices)
-        w, flag = self._cbox_or_label(self._selection_frame, self._date_choices, command=self._date_chosen)
-        w.grid(row=3, column=1, padx=2, pady=2, sticky=tk.W)
-        if flag:
-            self._date_cbox = w
-            self._date_cbox.current(choice_index)
-        else:
-            self._date_cbox = None
-        self._date_choice = choice_index
-        self.controller.notify_date_choice(choice_index)
-        
-    def _date_chosen(self, event):
-        self._date_choice = event.widget.current()
-        self.controller.notify_date_choice(self._date_choice)
-
-    @property
-    def date_choice(self):
-        """Pair of (index, string_value)"""
-        if not hasattr(self, "_date_cbox"):
-            return -1, ""
-        if self._date_cbox is None:
-            return 0, self._date_choices[0]
-        return self._date_choice, self._date_cbox["values"][self._date_choice]
-
     @property
     def model(self):
         return self.controller.model
+
+    @property
+    def hierarchical_view(self):
+        return self._hview
 
     def update_prediction(self, level=-1, adjust_task=None):
         """Change the plotted prediction.
@@ -228,7 +135,7 @@ class BrowseAnalysisView(util.ModalWindow):
         def make_fig():
             fig = mtp.new_figure((20,20))
             ax = fig.add_subplot(1,1,1)
-            prediction = self.model.current_prediction.prediction
+            prediction = self.model.current_prediction
             if level == -1:
                 plot_risk(prediction, ax, adjust_task)
             else:
@@ -238,10 +145,10 @@ class BrowseAnalysisView(util.ModalWindow):
             return fig
         if not hasattr(self, "_plot") or self._plot is None:
             frame = ttk.LabelFrame(self, text=_text["graph_name"])
-            frame.grid(row=10, column=0, columnspan=3, padx=2, pady=2, sticky=tk.NSEW)
+            frame.grid(row=10, column=0, columnspan=2, padx=2, pady=2, sticky=tk.NSEW)
             util.stretchy_rows_cols(frame, [0], [0])
             util.stretchy_rows(self, [10])
-            util.stretchy_columns(self, [0,1,2])
+            util.stretchy_columns(self, [0,1])
             self._plot = mtp.CanvasFigure(frame)
             self._plot.grid(padx=2, pady=2, sticky=tk.NSEW)
         self._plot.set_figure_task(make_fig, dpi=50)

@@ -127,8 +127,14 @@ _text = {
     "comall" : "All",
     "comalltt" : "Run the current 'comparison' methods on all prediction runs",
     "comallview" : "View results of comparing all predictions",
+    "waiting" : "Loading saved settings",
 
 }
+
+class FurtherWait(util.ModalWaitWindow):
+    def __init__(self, parent):
+        super().__init__(parent, _text["waiting"])
+
 
 class AnalysisView(tk.Frame):
     def __init__(self, model, controller, root):
@@ -137,8 +143,8 @@ class AnalysisView(tk.Frame):
         self._controller = controller
         self.grid(sticky=util.NSEW)
         self.master.protocol("WM_DELETE_WINDOW", self.cancel)
-        util.centre_window_percentage(self.master, 70, 80)
         self.add_widgets()
+        util.centre_window_percentage(self.master, 70, 80)
 
     def _info_frame(self, parent):
         self._info_frame = ttk.Frame(parent)
@@ -472,7 +478,10 @@ class AnalysisView(tk.Frame):
 
     def _view_comparison(self, analysis_run_index, comparison_run_index):
         # analysis_run_index == -1 means "all comparison"
-        pass
+        if analysis_run_index == -1:
+            self._controller.view_all_comparisons()
+        else:
+            self._controller.view_comparison(analysis_run_index, comparison_run_index)
     
     def _save_comparison_run(self, analysis_run_index, comparison_run_index):
         filename = util.ask_save_filename(filetypes = [(_text["c_save1"], "*.csv")],
