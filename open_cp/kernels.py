@@ -130,12 +130,12 @@ class GaussianKernel(Kernel):
         self.scale = scale
 
 class EpanechnikovKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    """A variable bandwidth epanechnikov kernel.  Each input epanechnikov is an
     uncorrelated k-dimensional Gaussian.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Epanechnikov.
+    :param variances: Array of shape (k,M).  The variances of each Epanechnikov.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -152,7 +152,7 @@ class EpanechnikovKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Epanechnikov kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
@@ -174,8 +174,7 @@ class EpanechnikovKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 3/4 * (1 - x / var_broad )
-        x[x<0] = 0
+        x = 3/4 * (1 - x / var_broad ) if x<=var_broad else 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -183,12 +182,12 @@ class EpanechnikovKernel(Kernel):
         self.scale = scale
 
 class TriangularKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
-    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    """A variable bandwidth triangular kernel.  Each input Triangular is an
+    uncorrelated k-dimensional Triangular.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Triangular.
+    :param variances: Array of shape (k,M).  The variances of each triangular.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -205,7 +204,7 @@ class TriangularKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Triangular kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
@@ -227,75 +226,21 @@ class TriangularKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 1 - _np.sqrt(x / var_broad)
-        x[x<0] = 0
+        x = 1 - _np.sqrt(x / var_broad) if x<=var_broad else 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
     def set_scale(self, scale):
         self.scale = scale
 
-class BoxKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
-    uncorrelated k-dimensional Gaussian.  These are summed to produce the
-    kernel.
-    
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
-    :param scale: The overall normalisation factor, defaults to 1.0.
-    """
-    def __init__(self, means, variances, scale=1.0):
-#        if _np.any(_np.abs(variances) < 1e-8):
-#            raise ValueError("Too small variance!")
-
-        if len(means.shape) == 1:
-            self.means = means[None, :]
-            self.variances = variances[None, :]
-        else:
-            self.means = means
-            self.variances = variances
-        self.scale = scale
-        
-    def __call__(self, points):
-        """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
-        and then product over the j, sum over the i, and finally divide by M.
-        """
-        points = _np.asarray(points)
-        if self.means.shape[0] == 1:
-            if len(points.shape) == 0:
-                # Scalar input
-                pts = points[None, None]
-            elif len(points.shape) == 1:
-                pts = points[None, :]
-            else:
-                pts = points
-        else:
-            # k>1 so if points is 1D it's a single point
-            if len(points.shape) == 1:
-                pts = points[:, None]
-            else:
-                pts = points
-
-        # x[:,i,j] = (pts[:,i] - mean[:,j])**2
-        x = (pts[:,:,None] - self.means[:,None,:]) ** 2
-        var_broad = self.variances[:,None,:]
-        x = x/var_broad
-        x[x<=1] = 0.5
-        x[x>1] = 0
-        return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
-        return return_array if pts.shape[1] > 1 else return_array[0]
-        
-    def set_scale(self, scale):
-        self.scale = scale
         
 class QuarticKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
-    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    """A variable bandwidth quartic kernel.  Each input Quartic is an
+    uncorrelated k-dimensional Quartic.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Quartic.
+    :param variances: Array of shape (k,M).  The variances of each Quartic.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -312,7 +257,7 @@ class QuarticKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Quartic kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
@@ -334,9 +279,7 @@ class QuarticKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        mask = abs(x) / abs(var_broad)
-        x[mask] = 15/16 * ((1 - x[mask] )**2)
-        x[~mask] = 0
+        x = 15/16 * ((1 - x/var_broad )**2) if x<=var_broad else 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -344,12 +287,12 @@ class QuarticKernel(Kernel):
         self.scale = scale
 
 class TriweightKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
-    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    """A variable bandwidth triweight kernel.  Each input Triweight is an
+    uncorrelated k-dimensional Triweight.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Triweight.
+    :param variances: Array of shape (k,M).  The variances of each Triweight.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -366,7 +309,7 @@ class TriweightKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Triweight kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
@@ -388,8 +331,7 @@ class TriweightKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 35/32 * ((1 - x / var_broad)**3)
-        x[x<0] = 0
+        x = 35/32 * ((1 - x / var_broad)**3) if x<=var_broad else 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -397,12 +339,12 @@ class TriweightKernel(Kernel):
         self.scale = scale
         
 class TricubeKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
+    """A variable bandwidth tricube kernel.  Each input Tricube is an
     uncorrelated k-dimensional Gaussian.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Tricube.
+    :param variances: Array of shape (k,M).  The variances of each Tricube.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -419,7 +361,7 @@ class TricubeKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Tricube kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
@@ -441,9 +383,7 @@ class TricubeKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        mask = abs(x) <= abs(var_broad)
-        x[mask] = 70/81 * ((1 - x[mask] / var_broad)**3)
-        x[~mask] = 0
+        x = 70/81 * ((1 - x / var_broad)**3) if x<=var_broad else 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -451,12 +391,12 @@ class TricubeKernel(Kernel):
         self.scale = scale
         
 class CosineKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
-    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    """A variable bandwidth cosine kernel.  Each input Cosine is an
+    uncorrelated k-dimensional Cosine.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Cosine.
+    :param variances: Array of shape (k,M).  The variances of each Cosine.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -473,7 +413,7 @@ class CosineKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Cosine kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
@@ -495,8 +435,10 @@ class CosineKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        mask = abs(x)<=abs(var_broad)
-        x[mask] = _np.pi/4 * _np.cos(0.5 * _np.pi * _np.sqrt(x / var_broad))
+#        mask = abs(x)<=abs(var_broad)
+#        x[mask] = _np.pi/4 * _np.cos(0.5 * _np.pi * _np.sqrt(x / var_broad))
+#        x[~mask] = 0
+        x = _np.pi/4 * _np.cos(0.5 * _np.pi * _np.sqrt(x / var_broad)) if x<=var_broad else 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -504,12 +446,12 @@ class CosineKernel(Kernel):
         self.scale = scale
 
 class UniformKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
-    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    """A variable bandwidth uniform kernel.  Each input Uniform is an
+    uncorrelated k-dimensional Uniform.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Uniform.
+    :param variances: Array of shape (k,M).  The variances of each Uniform.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -526,7 +468,7 @@ class UniformKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Uniform kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
@@ -548,9 +490,7 @@ class UniformKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        mask = x <= var_broad
-        x[mask] = 0.5
-        x[~mask] = 0
+        x = 0.5 if x <= var_broad else 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -558,12 +498,12 @@ class UniformKernel(Kernel):
         self.scale = scale
         
 class SilvermanKernel(Kernel):
-    """A variable bandwidth gaussian kernel.  Each input Gaussian is an
-    uncorrelated k-dimensional Gaussian.  These are summed to produce the
+    """A variable bandwidth silverman kernel.  Each input Silverman is an
+    uncorrelated k-dimensional Silverman.  These are summed to produce the
     kernel.
     
-    :param means: Array of shape (k,M).  The centre of each Gaussian.
-    :param variances: Array of shape (k,M).  The variances of each Gaussian.
+    :param means: Array of shape (k,M).  The centre of each Silverman.
+    :param variances: Array of shape (k,M).  The variances of each Silverman.
     :param scale: The overall normalisation factor, defaults to 1.0.
     """
     def __init__(self, means, variances, scale=1.0):
@@ -580,7 +520,7 @@ class SilvermanKernel(Kernel):
         
     def __call__(self, points):
         """For each point in `pts`: for each of i=1...M and each coord j=1...k
-        we compute the Gaussian kernel centred on mean[i][j] with variance var[i][j],
+        we compute the Silverman kernel centred on mean[i][j] with variance var[i][j],
         and then product over the j, sum over the i, and finally divide by M.
         """
         points = _np.asarray(points)
