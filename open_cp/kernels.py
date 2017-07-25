@@ -174,7 +174,9 @@ class EpanechnikovKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 3/4 * (1 - x / var_broad ) if x<=var_broad else 0
+#        mask = x <= var_broad
+        x = 3/4 * (1 - x / var_broad )
+        x[x<0] = 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -226,7 +228,9 @@ class TriangularKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 1 - _np.sqrt(x / var_broad) if x<=var_broad else 0
+#        mask = x <= var_broad
+        x = 1 - _np.sqrt(x / var_broad)
+        x = x*(x>0)
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -279,7 +283,10 @@ class QuarticKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 15/16 * ((1 - x/var_broad )**2) if x<=var_broad else 0
+#        mask = x <= var_broad
+        x = 1 - x/var_broad
+        x = x*(x>0)
+        x = 15/16 * (x**2) 
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -331,7 +338,9 @@ class TriweightKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 35/32 * ((1 - x / var_broad)**3) if x<=var_broad else 0
+#        mask = x <= var_broad
+        x = 35/32 * ((1 - x / var_broad)**3)
+        x = x*(x>0)
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -383,7 +392,9 @@ class TricubeKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 70/81 * ((1 - x / var_broad)**3) if x<=var_broad else 0
+#        mask = x <= var_broad
+        x = 70/81 * ((1 - x / var_broad)**3)
+        x = x * (x>0)
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -435,10 +446,10 @@ class CosineKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-#        mask = abs(x)<=abs(var_broad)
-#        x[mask] = _np.pi/4 * _np.cos(0.5 * _np.pi * _np.sqrt(x / var_broad))
-#        x[~mask] = 0
-        x = _np.pi/4 * _np.cos(0.5 * _np.pi * _np.sqrt(x / var_broad)) if x<=var_broad else 0
+#        mask = x<= var_broad
+        x = _np.sqrt(x/var_broad)
+        x = (x-1) * ((x-1)<0) + 1
+        x = (_np.pi/4) * _np.cos(0.5 * _np.pi * x )
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -490,7 +501,10 @@ class UniformKernel(Kernel):
         # x[:,i,j] = (pts[:,i] - mean[:,j])**2
         x = (pts[:,:,None] - self.means[:,None,:]) ** 2
         var_broad = self.variances[:,None,:]
-        x = 0.5 if x <= var_broad else 0
+#        mask = x <= var_broad
+        x = x / var_broad
+        x[x<=1] = 0.5
+        x[x>1] = 0
         return_array = _np.mean(_np.product(x, axis=0), axis=1) * self.scale
         return return_array if pts.shape[1] > 1 else return_array[0]
         
@@ -644,8 +658,6 @@ def kth_nearest_neighbour_gaussian_kde(coords, k=15, kernel_type='Gaussian'):
         return EpanechnikovKernel(means.T, var.T)
     elif kernel_type=='Triangular':
         return TriangularKernel(means.T, var.T)
-    elif kernel_type=='Box':
-        return BoxKernel(means.T, var.T)
     elif kernel_type=='Quartic':
         return QuarticKernel(means.T, var.T)
     elif kernel_type=='Triweight':
@@ -684,8 +696,6 @@ def marginal_knng(coords, coord_index=0, k=15, kernel_type='Gaussian'):
         return EpanechnikovKernel(data, var)
     elif kernel_type=='Triangular':
         return TriangularKernel(data, var)
-    elif kernel_type=='Box':
-        return BoxKernel(data, var)
     elif kernel_type=='Quartic':
         return QuarticKernel(data, var)
     elif kernel_type=='Triweight':

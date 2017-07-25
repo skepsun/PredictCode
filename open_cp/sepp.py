@@ -518,11 +518,12 @@ class SEPPTrainer(predictors.DataTrainer):
         self.k_space = k_space
         self._space_cutoff = 500
         self._time_cutoff = 120 * 24 * 60 # minutes
-        self._trigger_kernel_estimator = kernels.KthNearestNeighbourGaussianKDE(self.k_space)
+        self._kernel_type = 'Gaussian'
+        self._trigger_kernel_estimator = kernels.KthNearestNeighbourGaussianKDE(self.k_space, self._kernel_type)
         # From Rosser, Cheng, suggested 0.1 day^{-1} and 50 metres
         self._initial_time_bandwidth = 24 * 60 / 10 # minutes
         self._initial_space_bandwidth = 50.0
-        self._kernel_type = 'Gaussian'
+
 
     @property
     def trigger_kernel_estimator(self):
@@ -559,7 +560,15 @@ class SEPPTrainer(predictors.DataTrainer):
     @initial_space_bandwidth.setter
     def initial_space_bandwidth(self, v):
         self._initial_space_bandwidth = v
-
+    
+    @property
+    def kernel_type(self):
+        return self._kernel_type
+    
+    @kernel_type.setter
+    def kernel_type(self, v):
+        self._kernel_type = v
+    
     @property
     def space_cutoff(self):
         """To speed up optimisation, set this to the minimal distance at which

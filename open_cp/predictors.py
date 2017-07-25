@@ -271,7 +271,7 @@ class ContinuousPrediction():
             # Use a fixed _density_
             samples = int(cell_width * cell_height / 200)
             if samples < 2:
-                samples = 1
+                samples = 2
         self.samples = samples
     
     def grid_risk(self, gx, gy):
