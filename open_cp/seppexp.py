@@ -186,14 +186,14 @@ def maximisation_corrected(cells, omega, theta, mu, time_duration):
 
     return (omega, theta, mu)
 
-def _make_cells(region, grid_size, events, times):
-    xsize, ysize = region.grid_size(grid_size)
+def _make_cells(region, grid_width, grid_height, events, times):
+    xsize, ysize = region.grid_size(grid_width, grid_height)
     cells = _np.empty((ysize, xsize), dtype=_np.object)
     for x in range(xsize):
         for y in range(ysize):
             cells[y,x] = []
-    xcs = _np.floor((events.xcoords - region.xmin) / grid_size)
-    ycs = _np.floor((events.ycoords - region.ymin) / grid_size)
+    xcs = _np.floor((events.xcoords - region.xmin) / grid_width)
+    ycs = _np.floor((events.ycoords - region.ymin) / grid_height)
     xcs = xcs.astype(_np.int)
     ycs = ycs.astype(_np.int)
     for i, time in enumerate(times):
@@ -209,12 +209,13 @@ class SEPPPredictor(predictors.DataTrainer):
     and triggering parameters.  This class allows these to be evaluated on
     potentially different data to produce predictions.
     """
-    def __init__(self, region, grid_size, omega, theta, mu):
+    def __init__(self, region, grid_width, grid_height, omega, theta, mu):
         self.omega = omega
         self.theta = theta
         self.mu = mu
         self.region = region
-        self.grid_size = grid_size
+        self.grid_width = grid_width
+        self.grid_height = grid_height
 
     def background_rate(self, x, y):
         """Return the background rate in grid cell `(x,y)`."""
@@ -227,7 +228,7 @@ class SEPPPredictor(predictors.DataTrainer):
         :return: Instance of :class:`open_cp.predictors.GridPredictionArray`
         """
         matrix = _np.array(self.mu, dtype=_np.float)
-        return predictors.GridPredictionArray(self.grid_size, self.grid_size,
+        return predictors.GridPredictionArray(self.grid_width, self.grid_height,
             matrix, self.region.xmin, self.region.ymin)
 
     def predict(self, predict_time, cutoff_time=None):
@@ -244,7 +245,7 @@ class SEPPPredictor(predictors.DataTrainer):
         """
         events = self.data.events_before(cutoff_time)
         times = (_np.datetime64(predict_time) - events.timestamps) / _np.timedelta64(1, "m")
-        cells = _make_cells(self.region, self.grid_size, events, times)
+        cells = _make_cells(self.region, self.grid_width, self.grid_height, events, times)
         if cells.shape != self.mu.shape:
             raise ValueError("Background rate on grid sized {} but this region"
                 "gives grid of size {}".format(self.mu.shape, cells.shape))
@@ -255,7 +256,7 @@ class SEPPPredictor(predictors.DataTrainer):
             dt = dt[dt>0]
             matrix[index] = _np.sum(self.theta * self.omega * _np.exp(-self.omega * dt))
         matrix += self.mu
-        return predictors.GridPredictionArray(self.grid_size, self.grid_size,
+        return predictors.GridPredictionArray(self.grid_width, self.grid_height,
             matrix, self.region.xmin, self.region.ymin)
 
 
@@ -274,20 +275,23 @@ class SEPPTrainer(predictors.DataTrainer):
     :param grid: Alternative to specifying the region and grid_size is to pass
       a :class:`BoundedGrid` instance.
     """
-    def __init__(self, region=None, grid_size=50, grid=None):
+    def __init__(self, region=None, grid_width=50, grid_height=50, grid=None):
         self._logger = _logging.getLogger(__name__)
         if grid is None:
-            self.grid_size = grid_size
+            self.grid_width = grid_width
+            self.grid_height = grid_height
             self.region = region
         else:
             self.region = grid.region()
-            self.grid_size = grid.xsize
-            if grid.xsize != grid.ysize:
-                raise ValueError("Only supports *square* grid cells.")
+            self.grid_width = grid.xsize
+            self.grid_height = grid.ysize
+#            if grid.xsize != grid.ysize:
+#                raise ValueError("Only supports *square* grid cells.")
+#           Actually I do not know why only square grid cells are supported
 
     def _make_cells(self, events):
         times = events.time_deltas(time_unit = _np.timedelta64(1, "m"))
-        cells = _make_cells(self.region, self.grid_size, events, times)
+        cells = _make_cells(self.region, self.grid_width, self.grid_height, events, times)
         return cells, times[-1]
 
     def train(self, cutoff_time=None, iterations=20, use_corrected=False):
@@ -320,4 +324,4 @@ class SEPPTrainer(predictors.DataTrainer):
             self._logger.debug("Using quicker algorithm, estimated omega=%s, theta=%s, mu=%s",
                                omega, theta, mu)
 
-        return SEPPPredictor(self.region, self.grid_size, omega, theta, mu)
+        return SEPPPredictor(self.region, self.grid_width, self.grid_height, omega, theta, mu)

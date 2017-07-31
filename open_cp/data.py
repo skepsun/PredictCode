@@ -120,8 +120,8 @@ class RectangularRegion():
         """
         if cell_height is None:
             cell_height = cell_width
-        xsize = int(_np.ceil((self.xmax - self.xmin) / cell_width))
-        ysize = int(_np.ceil((self.ymax - self.ymin) / cell_height))
+        xsize = int(_np.rint((self.xmax - self.xmin) / cell_width))
+        ysize = int(_np.rint((self.ymax - self.ymin) / cell_height))
         return xsize, ysize
 
     def __eq__(self, other):
@@ -471,7 +471,7 @@ def points_from_lon_lat(points, proj=None, epsg=None):
     if not proj:
         if not epsg:
             raise Exception("Need to provide one of 'proj' object or 'epsg' code")
-        proj = _proj.Proj({"init": "epsg:"+str(epsg)})
+        proj = _proj.Proj({"init": "EPSG:"+str(epsg)})
     
     transformed = _np.empty(points.coords.shape)
     for i in range(len(points.timestamps)):
